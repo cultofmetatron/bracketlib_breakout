@@ -49,17 +49,35 @@ impl Paddle {
         }
     }
     fn move_right(&mut self, x: isize) {
-        let new_position = self.x + x;
+        let new_position = if self.velocity.x >= 0 {
+            self.velocity.x = self.velocity.x + x;
+            self.x + self.velocity.x
+        } else {
+            self.velocity.x = 0;
+            self.velocity.x = self.velocity.x + x;
+            self.x + self.velocity.x
+        };
 
         if new_position + PADDLE_SIZE < SCREEN_WIDTH {
             self.x = new_position;
+        } else {
+            self.x = SCREEN_WIDTH - PADDLE_SIZE;
         }
     }
     fn move_left(&mut self, x: isize) {
-        let new_position = self.x - x;
+        let new_position = if self.velocity.x <= 0 {
+            self.velocity.x = self.velocity.x - x;
+            self.x + self.velocity.x
+        } else {
+            self.velocity.x = 0;
+            self.velocity.x = self.velocity.x - x;
+            self.x + self.velocity.x
+        };
 
         if new_position > 0 {
             self.x = new_position;
+        } else {
+            self.x = 0;
         }
     }
     fn render(&mut self, ctx: &mut BTerm) {
@@ -155,14 +173,14 @@ impl State {
                 VirtualKeyCode::Right => {
                     //if self.paddle.x + PADDLE_SIZE < SCREEN_WIDTH {
                     //    self.paddle = Paddle::new(self.paddle.x + 2);
-                    //}
-                    self.paddle.move_right(2);
+                    //
+                    self.paddle.move_right(1);
                 }
                 VirtualKeyCode::Left => {
                     //if self.paddle.x > 0 {
                     //    self.paddle = Paddle::new(self.paddle.x - 2);
                     //}
-                    self.paddle.move_left(2);
+                    self.paddle.move_left(1);
                 }
                 _ => {}
             }
