@@ -109,6 +109,7 @@ struct Ball {
     x: isize,
     y: isize,
     velocity: Velocity,
+    launched: bool
 }
 
 impl Ball {
@@ -117,10 +118,24 @@ impl Ball {
             x,
             y,
             velocity: Velocity { x: 0, y: 0 },
+            launched: false,
         }
+    }
+    fn set_position(&mut self, x: isize, y: isize) {
+        self.x = x;
+        self.y = y;
     }
     fn set_velocity(&mut self, v: Velocity) {
         self.velocity = v;
+    }
+    fn render(&mut self, ctx: &mut BTerm) {
+        ctx.set(
+            self.x,
+            self.y,
+            YELLOW,
+            BLACK,
+            to_cp437('@'),
+        );
     }
 }
 
@@ -165,6 +180,12 @@ impl State {
     fn play(&mut self, ctx: &mut BTerm) {
         ctx.cls();
 
+        if self.ball.launched {
+            self.ball.render(ctx);
+        } else {
+            self.ball.set_position(self.paddle.x, SCREEN_HEIGHT - 3);
+            self.ball.render(ctx);
+        }
         self.paddle.render(ctx);
 
         if let Some(key) = ctx.key {
