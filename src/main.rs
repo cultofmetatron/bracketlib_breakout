@@ -24,9 +24,10 @@ miles
 
 const SCREEN_WIDTH: isize = 80;
 const SCREEN_HEIGHT: isize = 50;
-const FRAME_DURATION: f32 = 20.0;
-const PADDLE_SIZE: isize = 5;
+const FRAME_DURATION: f32 = 1000.0;
+const PADDLE_SIZE: isize = 15;
 const PADDLE_Y: isize = SCREEN_HEIGHT - 2;
+const TOP_BOUNDRY_Y: isize = 2;
 
 enum GameMode {
     Playing,
@@ -48,12 +49,24 @@ impl Boundry {
             glyph: to_cp437(glyph),
         }
     }
-    fn detect_collision(self, ball: Ball) -> bool {
+    fn is_left_boundry(&self) -> bool {
+        let (x, _y) = self.position;
+        x == 0
+    }
+    fn is_right_boundry(&self) -> bool {
+        let (x, _y) = self.position;
+        x == SCREEN_WIDTH - 1
+    }
+    fn is_top_boundry(&self) -> bool {
+        let (_x, y) = self.position;
+        y == TOP_BOUNDRY_Y
+    }
+    fn detect_collision(&self, ball: &Ball) -> bool {
         let (ball_x, ball_y) = ball.next_position();
         let (x, y) = self.position;
         (x == ball_x && y == ball_y)
     }
-    fn render(self, ctx: &mut BTerm) {
+    fn render(&self, ctx: &mut BTerm) {
         let (x, y) = self.position;
         ctx.set(x, y, BLACK, WHITE, self.glyph);
     }
@@ -107,10 +120,10 @@ impl Paddle {
             self.x = 0;
         }
     }
-    fn detect_collision(self, ball: Ball) -> bool {
-        let (ball_x, ball_y) = ball.next_position();
+    fn detect_collision(&self, ball: &Ball) -> bool {
+        let (ball_x, ball_y) = (ball.x, ball.y);
         let x = self.x;
-        (x == ball_x && ball_y == PADDLE_Y)
+        ((ball_x >= x && ball_x <= x + PADDLE_SIZE + 1) && (ball_y == PADDLE_Y))
     }
     fn render(&mut self, ctx: &mut BTerm) {
         for i in self.x..(self.x + PADDLE_SIZE) {
@@ -131,7 +144,7 @@ struct Brick {
     size: isize,
 }
 
-
+#[derive(Debug)]
 struct Velocity {
     x: isize,
     y: isize,
@@ -141,7 +154,14 @@ struct Ball {
     x: isize,
     y: isize,
     velocity: Velocity,
-    launched: bool
+    launched: bool,
+}
+
+enum bounce {
+    Left,
+    Right,
+    Left_top,
+    Right_top,
 }
 
 impl Ball {
@@ -152,6 +172,15 @@ impl Ball {
             velocity: Velocity { x: 0, y: 0 },
             launched: false,
         }
+    }
+    fn handle_wall_collision(&mut self, wall: &Boundry) {
+        // update the position
+        // if the collission is left and above of the current position
+        let (next_x, next_y) = self.next_position();
+        let (x, y) = (self.x, self.y);
+
+
+        // update the velocty
     }
     fn set_position(&mut self, x: isize, y: isize) {
         self.x = x;
@@ -165,7 +194,7 @@ impl Ball {
         self.y = self.y + self.velocity.y;
     }
     // gets the next position of the ball
-    fn next_position(self) -> (isize, isize) {
+    fn next_position(&self) -> (isize, isize) {
         (self.x + self.velocity.x, self.y + self.velocity.y)
     }
     fn render(&mut self, ctx: &mut BTerm) {
@@ -203,9 +232,18 @@ impl State {
     }
     fn init_wall_tiles() -> Vec<Boundry> {
         let mut tiles: Vec<Boundry> = vec![];
-        // for the top
+        // draw the top
         for i in 1..(SCREEN_WIDTH - 1) {
-            tiles.push(Boundry::new(i, 2, '_'));
+            tiles.push(Boundry::new(i, TOP_BOUNDRY_Y, '_'));
+        }
+
+        // draw the left side
+        for i in 2..(SCREEN_HEIGHT - 4) {
+            tiles.push(Boundry::new(0, i, '|'))
+        }
+        // draw the right boundry
+        for i in 2..(SCREEN_HEIGHT - 4) {
+            tiles.push(Boundry::new(SCREEN_WIDTH - 1, i, '|'))
         }
 
         tiles
@@ -230,6 +268,13 @@ impl State {
             }
         }
     }
+    //returns the wallbeing collided
+    fn get_colliding_wall(&self) -> Option<&Boundry> {
+        // for each wall collission, we detect if there's a collission and returb the first thats true
+        self.wall_tiles.iter().find(|&wall| {
+            wall.detect_collision(&self.ball)
+        })
+    }
     fn play(&mut self, ctx: &mut BTerm) {
         ctx.cls();
 
@@ -238,7 +283,32 @@ impl State {
         }
 
         if self.ball.launched {
+            // check if there's a colliding call
+            if let Option::Some(&boundry) = self.get_colliding_wall() {
+                // a colliding wall
+                /*
+                if left/right and top, reverse the velocity of x and Y and update position
+                if left reverse the x velocity and update position
+                if right reverse the x veloicty and update update_position
+                if top reverse the y velocity and update position
+               */
+                if boundry.is_top_boundry() && (boundry.is_left_boundry() || boundry.is_right_boundry()) {
+                    self.ball.set_velocity(Velocity { x: self.ball.velocity.x * -1, y: self.ball.velocity.y * -1 });
+                } else if boundry.is_top_boundry() {
+                    self.ball.set_velocity(Velocity { x: self.ball.velocity.x, y: self.ball.velocity.y * -1 });
+                } else {
+                    self.ball.set_velocity(Velocity { x: self.ball.velocity.x * -1, y: self.ball.velocity.y });
+                }
+            }
+
+            if self.paddle.detect_collision(&self.ball) {
+                let new_velocity = Velocity { x: self.ball.velocity.x, y: self.ball.velocity.y * -1 };
+                self.ball.set_velocity(new_velocity);
+            }
+
+
             self.ball.update_position();
+
             self.ball.render(ctx);
         } else {
             self.ball.set_position(self.paddle.x, PADDLE_Y - 1);
@@ -253,13 +323,13 @@ impl State {
                     //if self.paddle.x + PADDLE_SIZE < SCREEN_WIDTH {
                     //    self.paddle = Paddle::new(self.paddle.x + 2);
                     //
-                    self.paddle.move_right(1);
+                    self.paddle.move_right(4);
                 }
                 VirtualKeyCode::Left => {
                     //if self.paddle.x > 0 {
                     //    self.paddle = Paddle::new(self.paddle.x - 2);
                     //}
-                    self.paddle.move_left(1);
+                    self.paddle.move_left(4);
                 }
                 VirtualKeyCode::Space => {
                     if !self.ball.launched {
