@@ -24,14 +24,41 @@ miles
 
 const SCREEN_WIDTH: isize = 80;
 const SCREEN_HEIGHT: isize = 50;
-const FRAME_DURATION: f32 = 75.0;
+const FRAME_DURATION: f32 = 20.0;
 const PADDLE_SIZE: isize = 5;
+const PADDLE_Y: isize = SCREEN_HEIGHT - 2;
 
 enum GameMode {
     Playing,
     Menu,
     End,
 }
+
+#[derive(Clone, Copy, Debug)]
+struct Boundry {
+    position: (isize, isize),
+    glyph: FontCharType,
+}
+
+
+impl Boundry {
+    fn new(x: isize, y: isize, glyph: char) -> Self {
+        Boundry {
+            position: (x, y),
+            glyph: to_cp437(glyph),
+        }
+    }
+    fn detect_collision(self, ball: Ball) -> bool {
+        let (ball_x, ball_y) = ball.next_position();
+        let (x, y) = self.position;
+        (x == ball_x && y == ball_y)
+    }
+    fn render(self, ctx: &mut BTerm) {
+        let (x, y) = self.position;
+        ctx.set(x, y, BLACK, WHITE, self.glyph);
+    }
+}
+
 
 struct Paddle {
     x: isize,
@@ -80,11 +107,16 @@ impl Paddle {
             self.x = 0;
         }
     }
+    fn detect_collision(self, ball: Ball) -> bool {
+        let (ball_x, ball_y) = ball.next_position();
+        let x = self.x;
+        (x == ball_x && ball_y == PADDLE_Y)
+    }
     fn render(&mut self, ctx: &mut BTerm) {
         for i in self.x..(self.x + PADDLE_SIZE) {
             ctx.set(
                 i,
-                SCREEN_HEIGHT - 2,
+                PADDLE_Y,
                 BLACK,
                 WHITE,
                 to_cp437(' '),
@@ -128,6 +160,14 @@ impl Ball {
     fn set_velocity(&mut self, v: Velocity) {
         self.velocity = v;
     }
+    fn update_position(&mut self) {
+        self.x = self.x + self.velocity.x;
+        self.y = self.y + self.velocity.y;
+    }
+    // gets the next position of the ball
+    fn next_position(self) -> (isize, isize) {
+        (self.x + self.velocity.x, self.y + self.velocity.y)
+    }
     fn render(&mut self, ctx: &mut BTerm) {
         ctx.set(
             self.x,
@@ -145,17 +185,30 @@ struct State {
     score: isize,
     paddle: Paddle,
     ball: Ball,
+    wall_tiles: Vec<Boundry>
 }
 
 impl State {
     fn new() -> Self {
+        let tiles = Self::init_wall_tiles();
+
         Self {
             mode: GameMode::Menu,
             frame_time: 0.0,
             paddle: Paddle::new(0),
             ball: Ball::new(10, 10),
             score: 0,
+            wall_tiles: tiles,
         }
+    }
+    fn init_wall_tiles() -> Vec<Boundry> {
+        let mut tiles: Vec<Boundry> = vec![];
+        // for the top
+        for i in 1..(SCREEN_WIDTH - 1) {
+            tiles.push(Boundry::new(i, 2, '_'));
+        }
+
+        tiles
     }
     fn restart(&mut self) {
         self.frame_time = 0.0;
@@ -180,10 +233,15 @@ impl State {
     fn play(&mut self, ctx: &mut BTerm) {
         ctx.cls();
 
+        for wall in self.wall_tiles.iter() {
+            wall.render(ctx);
+        }
+
         if self.ball.launched {
+            self.ball.update_position();
             self.ball.render(ctx);
         } else {
-            self.ball.set_position(self.paddle.x, SCREEN_HEIGHT - 3);
+            self.ball.set_position(self.paddle.x, PADDLE_Y - 1);
             self.ball.render(ctx);
         }
         self.paddle.render(ctx);
@@ -203,7 +261,20 @@ impl State {
                     //}
                     self.paddle.move_left(1);
                 }
-                _ => {}
+                VirtualKeyCode::Space => {
+                    if !self.ball.launched {
+                        self.ball.launched = true;
+                        let ball_velocity = if self.paddle.velocity.x >= 0 {
+                            1
+                        } else {
+                            -1
+                        };
+                        self.ball.set_velocity(Velocity { x: ball_velocity, y: -1 });
+                    }
+                }
+                _ => {
+                    self.paddle.velocity = Velocity { x: 0, y: 0 }
+                }
             }
         }
     }
