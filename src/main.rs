@@ -1,6 +1,5 @@
-use std::io::stdin;
 use bracket_lib::prelude::*;
-
+use std::io::stdin;
 
 /*
 
@@ -41,7 +40,6 @@ struct Boundry {
     glyph: FontCharType,
 }
 
-
 impl Boundry {
     fn new(x: isize, y: isize, glyph: char) -> Self {
         Boundry {
@@ -72,7 +70,6 @@ impl Boundry {
     }
 }
 
-
 struct Paddle {
     x: isize,
     velocity: Velocity,
@@ -82,10 +79,7 @@ impl Paddle {
     fn new(x: isize) -> Self {
         Self {
             x,
-            velocity: Velocity {
-                x: 0,
-                y: 0,
-            },
+            velocity: Velocity { x: 0, y: 0 },
         }
     }
     fn move_right(&mut self, x: isize) {
@@ -127,13 +121,7 @@ impl Paddle {
     }
     fn render(&mut self, ctx: &mut BTerm) {
         for i in self.x..(self.x + PADDLE_SIZE) {
-            ctx.set(
-                i,
-                PADDLE_Y,
-                BLACK,
-                WHITE,
-                to_cp437(' '),
-            );
+            ctx.set(i, PADDLE_Y, BLACK, WHITE, to_cp437(' '));
         }
     }
 }
@@ -179,7 +167,6 @@ impl Ball {
         let (next_x, next_y) = self.next_position();
         let (x, y) = (self.x, self.y);
 
-
         // update the velocty
     }
     fn set_position(&mut self, x: isize, y: isize) {
@@ -198,13 +185,7 @@ impl Ball {
         (self.x + self.velocity.x, self.y + self.velocity.y)
     }
     fn render(&mut self, ctx: &mut BTerm) {
-        ctx.set(
-            self.x,
-            self.y,
-            YELLOW,
-            BLACK,
-            to_cp437('@'),
-        );
+        ctx.set(self.x, self.y, YELLOW, BLACK, to_cp437('@'));
     }
 }
 
@@ -214,7 +195,7 @@ struct State {
     score: isize,
     paddle: Paddle,
     ball: Ball,
-    wall_tiles: Vec<Boundry>
+    wall_tiles: Vec<Boundry>,
 }
 
 impl State {
@@ -238,11 +219,11 @@ impl State {
         }
 
         // draw the left side
-        for i in 2..(SCREEN_HEIGHT - 4) {
+        for i in 2..(SCREEN_HEIGHT) {
             tiles.push(Boundry::new(0, i, '|'))
         }
         // draw the right boundry
-        for i in 2..(SCREEN_HEIGHT - 4) {
+        for i in 2..(SCREEN_HEIGHT) {
             tiles.push(Boundry::new(SCREEN_WIDTH - 1, i, '|'))
         }
 
@@ -271,9 +252,9 @@ impl State {
     //returns the wallbeing collided
     fn get_colliding_wall(&self) -> Option<&Boundry> {
         // for each wall collission, we detect if there's a collission and returb the first thats true
-        self.wall_tiles.iter().find(|&wall| {
-            wall.detect_collision(&self.ball)
-        })
+        self.wall_tiles
+            .iter()
+            .find(|&wall| wall.detect_collision(&self.ball))
     }
     fn play(&mut self, ctx: &mut BTerm) {
         ctx.cls();
@@ -287,25 +268,38 @@ impl State {
             if let Option::Some(&boundry) = self.get_colliding_wall() {
                 // a colliding wall
                 /*
-                if left/right and top, reverse the velocity of x and Y and update position
-                if left reverse the x velocity and update position
-                if right reverse the x veloicty and update update_position
-                if top reverse the y velocity and update position
-               */
-                if boundry.is_top_boundry() && (boundry.is_left_boundry() || boundry.is_right_boundry()) {
-                    self.ball.set_velocity(Velocity { x: self.ball.velocity.x * -1, y: self.ball.velocity.y * -1 });
+                 if left/right and top, reverse the velocity of x and Y and update position
+                 if left reverse the x velocity and update position
+                 if right reverse the x veloicty and update update_position
+                 if top reverse the y velocity and update position
+                */
+                if boundry.is_top_boundry()
+                    && (boundry.is_left_boundry() || boundry.is_right_boundry())
+                {
+                    self.ball.set_velocity(Velocity {
+                        x: self.ball.velocity.x * -1,
+                        y: self.ball.velocity.y * -1,
+                    });
                 } else if boundry.is_top_boundry() {
-                    self.ball.set_velocity(Velocity { x: self.ball.velocity.x, y: self.ball.velocity.y * -1 });
+                    self.ball.set_velocity(Velocity {
+                        x: self.ball.velocity.x,
+                        y: self.ball.velocity.y * -1,
+                    });
                 } else {
-                    self.ball.set_velocity(Velocity { x: self.ball.velocity.x * -1, y: self.ball.velocity.y });
+                    self.ball.set_velocity(Velocity {
+                        x: self.ball.velocity.x * -1,
+                        y: self.ball.velocity.y,
+                    });
                 }
             }
 
             if self.paddle.detect_collision(&self.ball) {
-                let new_velocity = Velocity { x: self.ball.velocity.x, y: self.ball.velocity.y * -1 };
+                let new_velocity = Velocity {
+                    x: self.ball.velocity.x,
+                    y: self.ball.velocity.y * -1,
+                };
                 self.ball.set_velocity(new_velocity);
             }
-
 
             self.ball.update_position();
 
@@ -334,17 +328,14 @@ impl State {
                 VirtualKeyCode::Space => {
                     if !self.ball.launched {
                         self.ball.launched = true;
-                        let ball_velocity = if self.paddle.velocity.x >= 0 {
-                            1
-                        } else {
-                            -1
-                        };
-                        self.ball.set_velocity(Velocity { x: ball_velocity, y: -1 });
+                        let ball_velocity = if self.paddle.velocity.x >= 0 { 1 } else { -1 };
+                        self.ball.set_velocity(Velocity {
+                            x: ball_velocity,
+                            y: -1,
+                        });
                     }
                 }
-                _ => {
-                    self.paddle.velocity = Velocity { x: 0, y: 0 }
-                }
+                _ => self.paddle.velocity = Velocity { x: 0, y: 0 },
             }
         }
     }
@@ -364,13 +355,12 @@ impl State {
     }
 }
 
-
 impl GameState for State {
     fn tick(&mut self, ctx: &mut BTerm) {
         match self.mode {
             GameMode::Menu => self.main_menu(ctx),
             GameMode::End => self.dead(ctx),
-            GameMode::Playing => self.play(ctx)
+            GameMode::Playing => self.play(ctx),
         }
     }
 }
