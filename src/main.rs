@@ -14,6 +14,10 @@ milestone 2:
       if it hits the floor, game over
 
 milestone 3:
+    * track if the ball is out of bounds. if it is, return the ball to the paddle and set launched false
+    *
+
+milestone 4:
     * render bricks, ball should bounce off the bricks
 
 miles
@@ -184,6 +188,9 @@ impl Ball {
     fn next_position(&self) -> (isize, isize) {
         (self.x + self.velocity.x, self.y + self.velocity.y)
     }
+    fn is_out_of_bounds(&self) -> bool {
+        (self.x < 0 || self.x > SCREEN_WIDTH || self.y > SCREEN_HEIGHT || self.y < 0)
+    }
     fn render(&mut self, ctx: &mut BTerm) {
         ctx.set(self.x, self.y, YELLOW, BLACK, to_cp437('@'));
     }
@@ -261,6 +268,10 @@ impl State {
 
         for wall in self.wall_tiles.iter() {
             wall.render(ctx);
+        }
+
+        if self.ball.is_out_of_bounds() {
+            self.ball.launched = false;
         }
 
         if self.ball.launched {
